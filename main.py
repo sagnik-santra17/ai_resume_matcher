@@ -1,11 +1,19 @@
 import json 
 import time
+import logging
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from pypdf import PdfReader
-    
 
 from utils import generate_ats_prompt, client
+
+
+# ------------------------------------------------------------------------------------------------------ #
+
+
+# Logging 
+logger = logging.getLogger(__name__)
+
 
 # Main FastAPI application
 app = FastAPI(
@@ -80,11 +88,14 @@ async def analyze_resume(
         except Exception as e:
             # Check if it's a temporary 503 server error and we have retries left
             if "503" in str(e) and attempt < max_retries - 1:
+                # Log the retry attempt so we can monitor how often this happens
+                logger.warning(f"Gemini 503 error, retry {attempt+1}/{max_retries} in {retry_delay}s")
                 time.sleep(retry_delay)
                 continue  # Try the loop again
-            
+
             # If it's a different error (like 400 or 404), or we ran out of retries, raise it
+            logger.error(f"Gemini failed after {attempt+1} attempts: {str(e)}")
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"AI processing failed: {str(e)}"
             )
