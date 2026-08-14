@@ -1,0 +1,22 @@
+# --- Environment Secret Files ---
+.env
+.env.*
+
+# --- Python Environment & Dependencies ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# --- Operating System Artifacts ---
+.DS_Store
+Thumbs.db
+
+# --- Editor & IDE Directories ---
+.vscode/
+.idea/
+*.swp
+*.swo
