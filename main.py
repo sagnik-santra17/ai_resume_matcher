@@ -1,7 +1,9 @@
-import json # 💡 FIXED: Standard json module import added correctly here
+import json 
+import time
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from pypdf import PdfReader
+    
 
 from utils import generate_ats_prompt, client
 
@@ -56,21 +58,33 @@ async def analyze_resume(
     # 4. Generate the prompt for the ATS model
     prompt = generate_ats_prompt(job_description, resume_text)
 
-    # 5. Call Gemini with the utility "client"
-    try:
-        response = client.models.generate_content(
-            model="gemini-3.7-flash",
-            contents=prompt,
-            config={
-                "response_mime_type": "application/json",
-            },
-        )
 
-        result_data = json.loads(response.text) 
-        return AnalysisResult(**result_data)
+    # 5. Call Gemini with the utility prompt (with auto-retry for 503 errors)
+    max_retries = 3
+    retry_delay = 2  # seconds to wait before retrying
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"AI processing failed: {str(e)}"
-        )
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.7-flash",
+                contents=prompt,
+                config={
+                    "response_mime_type": "application/json",
+                },
+            )
+
+            # If successful, parse and return immediately
+            result_data = json.loads(response.text)
+            return AnalysisResult(**result_data)
+
+        except Exception as e:
+            # Check if it's a temporary 503 server error and we have retries left
+            if "503" in str(e) and attempt < max_retries - 1:
+                time.sleep(retry_delay)
+                continue  # Try the loop again
+            
+            # If it's a different error (like 400 or 404), or we ran out of retries, raise it
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail=f"AI processing failed: {str(e)}"
+            )
