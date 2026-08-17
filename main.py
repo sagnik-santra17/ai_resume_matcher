@@ -67,35 +67,40 @@ async def analyze_resume(
     prompt = generate_ats_prompt(job_description, resume_text)
 
 
-    # 5. Call Gemini with the utility prompt (with auto-retry for 503 errors)
+    # 5. Call Gemini with fallback models and retry for 503 errors
+    models = [
+        "gemini-3.7-flash", # -> primary
+        "gemini-2.0-flash-exp", # -> fallback 1
+        "gemini-1.5-flash" # -> fallback 2
+    ]
+
     max_retries = 3
-    retry_delay = 2  # seconds to wait before retrying
+    retry_delay = 2
 
-    for attempt in range(max_retries):
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.7-flash",
-                contents=prompt,
-                config={
-                    "response_mime_type": "application/json",
-                },
-            )
+    for model in models:
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting with model: {model} (try {attempt+1}/{max_retries})")
+                response = client.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config={"response_mime_type": "application/json"},
+                )
 
-            # If successful, parse and return immediately
-            result_data = json.loads(response.text)
-            return AnalysisResult(**result_data)
+                result_data = json.loads(response.text)
+                return AnalysisResult(**result_data)
 
-        except Exception as e:
-            # Check if it's a temporary 503 server error and we have retries left
-            if "503" in str(e) and attempt < max_retries - 1:
-                # Log the retry attempt so we can monitor how often this happens
-                logger.warning(f"Gemini 503 error, retry {attempt+1}/{max_retries} in {retry_delay}s")
-                time.sleep(retry_delay)
-                continue  # Try the loop again
+            except Exception as e:
+                if "503" in str(e) and attempt < max_retries - 1:
+                    logger.warning(f"{model} 503, retry {attempt+1}/{max_retries} in {retry_delay}s")
+                    time.sleep(retry_delay)
+                    continue
+                # If this model failed after all retries, log and try next model
+                logger.warning(f"{model} failed after {attempt+1} attempts: {str(e)}")
+                break  # exit retry loop for this model
 
-            # If it's a different error (like 400 or 404), or we ran out of retries, raise it
-            logger.error(f"Gemini failed after {attempt+1} attempts: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"AI processing failed: {str(e)}"
-            )
+    # If all models fail
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="All AI models temporarily unavailable. Please try again later."
+    )
