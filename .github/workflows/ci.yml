@@ -32,4 +32,4 @@ jobs:
         env:
           deploy_url: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
-          curl "$deploy_url"
+          curl -X POST "$deploy_url"
