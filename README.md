@@ -12,7 +12,7 @@ Live URL: https://ai-resume-matcher-uxrk.onrender.com/docs
 - **Retry logic** — automatically retries up to 3 times on transient `503` errors from the Gemini API.
 - **Fallback models** — if the primary model (`gemini-3.7-flash`) fails, it seamlessly tries `gemini-2.0-flash-exp` and then `gemini-1.5-flash` before giving up.
 - **Logging** — every retry and model switch is logged, so you can monitor performance and failure rates.
-- **Dockerized** — ships with a `Dockerfile` and `docker-compose.yml` for one-command startup.
+- **Dockerized** — ships with a `Dockerfile` and `docker-compose.yml` for one-command startup
 
 ## Tech Stack
 
