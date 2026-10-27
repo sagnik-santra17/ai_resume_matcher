@@ -23,4 +23,6 @@ jobs:
           pip install -r requirements.txt
 
       - name: Check if app loads
+        env:
+          GEMINI_API_KEY: "fake-key-for-testing"
         run: python -c "from main import app"
