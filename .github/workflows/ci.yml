@@ -26,3 +26,10 @@ jobs:
         env:
           GEMINI_API_KEY: "fake-key-for-testing"
         run: python -m pytest
+
+      - name: Deploy to Render
+        if: success()
+        env:
+          deploy_url: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          curl "$deploy_url"
